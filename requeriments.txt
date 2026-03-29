@@ -1,0 +1,4 @@
+alpaca-py
+anthropic
+requests
+schedule
