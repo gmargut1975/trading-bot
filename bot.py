@@ -2,7 +2,7 @@ import os
 import time
 import schedule
 import requests
-from anthropic import Anthropic
+import json
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -14,11 +14,11 @@ ALPACA_API_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Clientes
+# Clientes Alpaca
 trading_client = TradingClient(ALPACA_API_KEY, ALPACA_SECRET_KEY, paper=True)
 data_client = StockHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
-anthropic_client = Anthropic()
 
 # Acciones a seguir
 SYMBOLS = ["AAPL", "MSFT", "GOOGL"]
@@ -45,7 +45,7 @@ def get_portfolio():
     }
     return portfolio
 
-def ask_claude(prices, portfolio):
+def ask_gemini(prices, portfolio):
     prompt = f"""Eres un gestor de inversiones conservador. Tu objetivo es hacer crecer una cartera pequeña de forma prudente.
 
 Estado actual de la cartera:
@@ -63,7 +63,7 @@ Basándote en esta información, decide qué hacer. Puedes:
 - Vender posiciones existentes
 - No hacer nada si no hay oportunidad clara
 
-Responde SOLO en este formato JSON exacto:
+Responde SOLO en este formato JSON exacto sin ningún texto adicional ni markdown:
 {{
   "accion": "comprar" | "vender" | "esperar",
   "symbol": "AAPL" | "MSFT" | "GOOGL" | null,
@@ -71,15 +71,13 @@ Responde SOLO en este formato JSON exacto:
   "razon": "explicación breve"
 }}"""
 
-    response = anthropic_client.messages.create(
-        model="claude-opus-4-20250514",
-        max_tokens=500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    import json
-    text = response.content[0].text
-    # Limpiar posibles markdown
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    response = requests.post(url, json=payload)
+    data = response.json()
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
     text = text.replace("```json", "").replace("```", "").strip()
     return json.loads(text)
 
@@ -121,75 +119,26 @@ def run():
         send_telegram("🤖 Analizando mercado...")
         prices = get_prices()
         portfolio = get_portfolio()
-        decision = ask_claude(prices, portfolio)
+        decision = ask_gemini(prices, portfolio)
         execute_decision(decision, prices)
     except Exception as e:
         send_telegram(f"⚠️ Error: {str(e)}")
 
 # Ejecutar cada 30 minutos en horario de mercado (UTC)
-schedule.every().monday.at("13:30").do(run)
-schedule.every().monday.at("14:00").do(run)
-schedule.every().monday.at("14:30").do(run)
-schedule.every().monday.at("15:00").do(run)
-schedule.every().monday.at("15:30").do(run)
-schedule.every().monday.at("16:00").do(run)
-schedule.every().monday.at("16:30").do(run)
-schedule.every().monday.at("17:00").do(run)
-schedule.every().monday.at("17:30").do(run)
-schedule.every().monday.at("18:00").do(run)
-schedule.every().monday.at("18:30").do(run)
-schedule.every().monday.at("19:00").do(run)
-schedule.every().tuesday.at("13:30").do(run)
-schedule.every().tuesday.at("14:00").do(run)
-schedule.every().tuesday.at("14:30").do(run)
-schedule.every().tuesday.at("15:00").do(run)
-schedule.every().tuesday.at("15:30").do(run)
-schedule.every().tuesday.at("16:00").do(run)
-schedule.every().tuesday.at("16:30").do(run)
-schedule.every().tuesday.at("17:00").do(run)
-schedule.every().tuesday.at("17:30").do(run)
-schedule.every().tuesday.at("18:00").do(run)
-schedule.every().tuesday.at("18:30").do(run)
-schedule.every().tuesday.at("19:00").do(run)
-schedule.every().wednesday.at("13:30").do(run)
-schedule.every().wednesday.at("14:00").do(run)
-schedule.every().wednesday.at("14:30").do(run)
-schedule.every().wednesday.at("15:00").do(run)
-schedule.every().wednesday.at("15:30").do(run)
-schedule.every().wednesday.at("16:00").do(run)
-schedule.every().wednesday.at("16:30").do(run)
-schedule.every().wednesday.at("17:00").do(run)
-schedule.every().wednesday.at("17:30").do(run)
-schedule.every().wednesday.at("18:00").do(run)
-schedule.every().wednesday.at("18:30").do(run)
-schedule.every().wednesday.at("19:00").do(run)
-schedule.every().thursday.at("13:30").do(run)
-schedule.every().thursday.at("14:00").do(run)
-schedule.every().thursday.at("14:30").do(run)
-schedule.every().thursday.at("15:00").do(run)
-schedule.every().thursday.at("15:30").do(run)
-schedule.every().thursday.at("16:00").do(run)
-schedule.every().thursday.at("16:30").do(run)
-schedule.every().thursday.at("17:00").do(run)
-schedule.every().thursday.at("17:30").do(run)
-schedule.every().thursday.at("18:00").do(run)
-schedule.every().thursday.at("18:30").do(run)
-schedule.every().thursday.at("19:00").do(run)
-schedule.every().friday.at("13:30").do(run)
-schedule.every().friday.at("14:00").do(run)
-schedule.every().friday.at("14:30").do(run)
-schedule.every().friday.at("15:00").do(run)
-schedule.every().friday.at("15:30").do(run)
-schedule.every().friday.at("16:00").do(run)
-schedule.every().friday.at("16:30").do(run)
-schedule.every().friday.at("17:00").do(run)
-schedule.every().friday.at("17:30").do(run)
-schedule.every().friday.at("18:00").do(run)
-schedule.every().friday.at("18:30").do(run)
-schedule.every().friday.at("19:00").do(run)
+for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+    for hour in range(13, 20):
+        for minute in ["00", "30"]:
+            getattr(schedule.every(), day).at(f"{hour}:{minute}").do(run)
 
 send_telegram("🚀 Bot de trading iniciado. Operando en Paper Trading.")
 
 while True:
     schedule.run_pending()
     time.sleep(30)
+```
+
+También hay que actualizar `requirements.txt` — edítalo y deja solo esto:
+```
+alpaca-py
+requests
+schedule
