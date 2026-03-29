@@ -1,3 +1,4 @@
+# bot de trading
 import os
 import time
 import schedule
